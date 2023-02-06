@@ -1,0 +1,461 @@
+// Types
+
+Number = int | float
+
+// Error
+
+ErrorType = {
+    FUNC_ARGS: "FuncArgs"
+}
+
+error = [errorType::string message::string] => __error__[errorType message]
+
+exit = [code::int = 0] => __exit__[code]
+
+// Builtins 
+
+typeof = [var] => __type__[var]
+shape = [var] => __shape__[var]
+
+// Print
+
+print = [...args] => {
+    for [args index arg] {
+        __print__[arg]
+    }
+}
+
+println = [...args] => {
+    for [args i v] { 
+        __print__[v "\n"]
+    }
+}
+
+// Range
+
+range = [start::int end::int] => {
+    __range__[start end]
+}
+
+xrange = [start::int end::int] => start..end
+xrange = [end::int] => 0..end
+
+// Delete
+
+delete = [arg] => __delete__[arg]
+
+// Time
+
+time = [] => __time__[]
+
+// Import
+
+import = [path::string] => __import__[path]
+
+// I/O
+
+read = [path::string] => __read__[path]
+write = [path::string content::string] => __write__[path content]
+append = [path::string content::string] => __append__[path content]
+
+// Casting
+
+to_int = [value] => __to_int__[value]
+to_float = [value] => __to_float__[value]
+to_string = [value] ::  string => __to_string__[value]
+
+// ls
+
+reduce = [func::([a b] => any) = ([a b] => { a + b }) ls :: []] => {
+
+	if [ls.length == 1] {
+		ret ls.[0]
+	}
+
+	if [ls.length == 2] {
+        ret func[ls.[0] ls.[1]]
+	}
+
+	x::any = ls.[0]
+
+    for [range[0 ls.length - 1] index] {
+        x = func[x ls.[index + 1]]
+    }
+
+    ret x
+}
+
+reduce = [op::partial ls::[]] => {
+
+	if [ls.length == 1] {
+		ret ls.[0]
+	}
+
+	if [ls.length == 2] {
+        ret (ls.[0], ls.[1]) >> op
+	}
+
+	x::any = ls.[0]
+
+    for [0..(ls.length - 1) index] {
+        x = (x, ls.[index + 1]) >> op
+    }
+
+    ret x
+}
+
+map = [func::function ls::[]] => ls.map[func]
+map = [op::partial ls::[]] => ls.map[op]
+
+flatmap = [func::function ls::[]] => ls.flatmap[func]
+flatmap = [op::partial ls::[]] => ls.flatmap[op]
+
+filter = [func::function ls::[]] => ls.filter[func]
+filter = [op::partial ls::[]] => ls.filter[op]
+
+foreach = [func::function ls::[]] => ls.foreach[func]
+
+count = [f::function l::[]] => {
+	l.filter[f].length
+}
+
+zip = [func::function ...lss::[[any]]] => {
+
+    if [typeof[func] == "function" && func.params.length != lss.length] {
+        error["FuncArgs" "Function 'zip' expects zip function to contains " + lss.length + " parameters"]
+    }
+
+    length = lss.[0].length
+    
+    res = []
+    for [range[0 lss.[0].length] i] {
+        f = func
+        for [range[0 lss.length] j] {
+            if [lss.[j].length != length] {
+                error["list" "Function 'zip' expects provided lss to be of same length"]
+            }
+            f = lss.[j].[i] >> f
+        }
+        res.append[f]
+    }
+    ret res
+}
+
+obj_zip = [a::list b::list] => {
+    if [a.length != b.length] {
+        ret {}
+    }
+
+    obj = {}
+
+    for [a i] {
+        obj.[to_string[a.[i]]] = b.[i]
+    }
+
+    obj
+}
+
+find = [func::(x => any) ls::[]] => {
+    for [ls index] {
+		if[func[ls.[index]]] {
+			ret ls.[index]
+		}
+	}
+}
+
+find = [func::([x i::int] => any) ls::[]] => {
+    for [ls index] {
+		if[func[ls.[index] index]] {
+			ret ls.[index]
+		}
+	}
+}
+
+find = [func::([x i::int ls::[]] => any) ls::[]] => {
+    for [ls index] {
+		if[func[ls.[index] index ls]] {
+			ret ls.[index]
+		}
+	}
+}
+
+flatten = [all::bool = false ls::[]] => ls.flatten[all]
+
+unique = [ls::[]] => {
+    prev = {}
+    unique_ls = []
+    for [ls index item] {
+        if [prev.[to_string[item]] == null] {
+            prev.[to_string[item]] = index
+            unique_ls.append[item]
+        }
+    }
+    ret unique_ls
+}
+
+sort = [ls::[]] => ls.sort[]
+sort = [func::function ls::[]] => ls.sort[func]
+
+// --- Generic --- //
+
+transform = [funcs::[function] value] => {
+    res::any = value
+    for [funcs index func] {
+        f :: any = null
+        f = func
+        res = res >> f
+    }
+    ret res
+}
+
+reverse = [value::[]] => -value
+reverse = [value::string] => -value
+
+// --- Math --- //
+
+max = [a b] => {
+    if [a > b] {
+        ret a
+    }
+
+    ret b
+}
+max = l::[] => (l >> reduce[[a b] => {
+    if [a > b] {
+        ret a
+    }
+
+    ret b
+}])
+
+min = [a b] => {
+    if [a <= b] {
+        ret a
+    }
+
+    ret b
+}
+min = l::[] => (l >> reduce[[a b] => {
+    if [a <= b] {
+        ret a
+    }
+
+    ret b
+}])
+
+minmax = l::[] => {
+	if [l.empty] {
+		ret []
+	}
+
+	_min = l.[0]
+	_max = l.[0]
+
+	for [l i v] {
+		if [v < _min] {
+			_min = v
+		}
+		if [v > _max] {
+			_max = v
+		}
+	}
+
+	ret [_min _max]
+}
+
+gcd = [x::int y::int] => {
+	if [x < 0 || y < 0] {
+		ret
+	}
+	
+	while [y != 0] {
+		temp = x
+		x = y
+		y = temp % y
+	}
+
+	ret x
+}
+
+get = [key::string on_null::any obj::object] => {
+    res = obj.[key]
+    if [res == null] {
+        ret on_null
+    }
+    res
+}
+get = [key::string on_null::any obj::null] => on_null
+
+// --- Components --- //
+
+String = {
+
+    // built-ins //
+
+    chars: [str::string] => str.chars[]
+    append: [val::string str::string] => str.append[val]
+    prepend: [val::string str::string] => str.prepend[val]
+    insert: [pos::int val::string str::string] => str.insert[pos val]
+    replace: [from::string to::string str::string] => str.replace[from to]
+    replace_all: [from::string to::string str::string] => str.replace_all[from to]
+    replace_at: [pos::int to::string str::string] => str.replace_at[pos to]
+    remove: [pos::int str::string] => str.remove[pos]
+    split: [delim::string str::string] => str.split[delim]
+    trim: [str::string] => str.trim[]
+    lower: [str::string] => str.lower[]
+    upper: [str::string] => str.upper[]
+    length: [str::string] => str.length
+
+    empty: [str::string] => str.empty
+    is_alpha: [str::string] => str.is_alpha
+    is_digit: [str::string] => str.is_digit
+
+    // ---- //
+
+    remove_sec: [start::int end::int str::string] => {
+
+        if [start < 0] {
+            start = 0
+        }
+
+        if [end >= str.length] {
+            end = str.length
+        }
+
+        for [range[start end] i] {       
+            str.remove[start]
+        }
+        str
+    }
+    contains = [substr::string str::string] => {
+        len = substr.length
+        for [range[0 str.length] i] {
+            sub = str.subsection[i i+len]
+            if [sub == substr] {
+                ret true
+            }
+        }
+        
+        false
+    }
+    index_of: [substr::string all::bool=false str::string] => {
+        res = []
+        len = substr.length
+        for [range[0 str.length] i] {
+            sub = str.subsection[i i+len]
+            if [sub == substr] {
+                if [all == false] {
+                    ret i
+                }
+                res.append[i]
+            }
+        }
+
+        if [all] {
+            ret res
+        }
+        
+        (-1)
+    }
+}
+
+List = {
+
+    // built-ins
+
+    append: [val::any ls::[]] => ls.append[val]
+    prepend: [val::any ls::[]] => ls.prepend[val]
+    insert: [pos::int val::any ls::[]] => ls.insert[pos val]
+    remove: [pos::int ls::[]] => ls.remove[pos]
+    clear: [ls::[]] => ls.clear[]
+    length: [ls::[]] => ls.length
+
+    // --- //
+
+    contains = [val::any ls::[]] => {
+        f = [x] => x == val
+        res = ls >> find[f]
+        if [res == null] {
+            ret false
+        }
+        true
+    }
+
+    index_of: [val::any all::bool=false ls::list] => {
+        res = []
+        for [range[0 ls.length] i] {
+            if [ls.[i] == val] {
+                if [all == false] {
+                    ret i
+                }
+                res.append[i]
+            }
+        }
+
+        if [all] {
+            ret res
+        }
+        
+        (-1)
+    }
+
+}
+
+Object = {
+
+    // built-ins
+
+    remove: [name::string obj::object] => obj.delete[name]
+    clear: [obj::object] => obj.clear[]
+    keys: [obj::object] => obj._keys
+    values: [obj::object] => obj._values
+    items: [obj::object] => obj._items
+
+    // --- //
+
+    add: [name::string val::any obj::object] => {
+        obj.[name] = val
+        obj
+    }
+    length: [obj::object] => obj._keys.length
+    change_key: [old_key::string new_key::string obj::object] => {
+        if [obj.[old_key] == null] {
+            ret obj
+        }
+        obj.[new_key] = obj.[old_key]
+        obj.delete[old_key]
+        obj
+    }
+}
+
+Function = {
+    call: [args::[] = [] func::function] => {
+        if [args.empty] {
+            ret func[]
+        }
+
+        if [args.length > func.params.length] {
+            error[ErrorType.FUNC_ARGS "Too many arguments for function '" + func.name + "'"]
+        }
+
+        for [args i] {
+            func = args.[i] >> func
+        }
+
+        ret func
+    }
+}
+
+// Dependent Types
+
+OR = [...args] => {
+    or :: type = [v] => (args >> List.contains[v])
+}
+
+IN = [ls :: []] => {
+    in :: type = [v] => (ls >> List.contains[v])
+}
+
+KEYOF = [obj :: object] => {
+    keyof :: type = [v::string] => (obj._keys >> List.contains[v])
+}

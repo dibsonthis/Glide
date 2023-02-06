@@ -1,0 +1,8 @@
+// Welcome to Glide, a language designed for data transformation :)
+
+x::float = 1..100 
+	>> map[x => x * 2.5]
+	>> filter[x => x > 125]
+	>> reduce[+]
+
+print[x]

@@ -1,0 +1,5 @@
+{
+    "settings": {
+        "builtins_path": "../../../src/builtins/builtins.gl"
+    }
+}
