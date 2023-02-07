@@ -266,7 +266,6 @@ id,name
 
 ## Explanation of the above code:
 
-```
 1- Import the csv module
 
 2- Load the 2 pieces of data (employees and departments). Think of these as two tables in a database. The schema object is used to transform the types of the data, since csv data is all string based. This may or may not be useful once we load from a database, given that we may already know the types ahead of loading.
@@ -276,4 +275,3 @@ id,name
 4- We then set up two other stages, which do the same thing as the extraction schema, except they only affect the columns defined in the schema. The rest of the columns are left intact.
 
 5- We run the pipeline, starting with the extraction, and then the reshaping of the data. Note that we are saving each step of the transformation in its own variable for future reference (this is possible because we are piping the result of a transformation into a partial equal op, which then evaluates and saves the data).
-```
