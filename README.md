@@ -2,6 +2,18 @@
 
 Glide is a statically (and dynamically) typed language designed to make reading and writing data transformations easier.
 
+# How to use:
+
+To compile your own version of Glide, simply change the "Type" in main.cpp to "INTERP", and compile using "C/C++: clang++ build interpreter". Note: currently only tested on Mac, but try your luck with the Windows build too. It may throw some errors that should be easy to iron out.
+
+If you want to build in developer mode, leave "Type" as "DEV" and compile using "C/C++: clang++ build and debug active file".
+
+For both instances, you need to be in main.cpp for compilation to work.
+
+If you compile the interpreter, the executable is found in "bin/build/interp".
+
+If you compile in debug mode, the executable is found in "bin/build/dev".
+
 # Examples
 
 ## Basic data transformation:
