@@ -4,6 +4,7 @@ Glide is a statically (and dynamically) typed language designed to make reading 
 
 # Examples
 
+## Basic data transformation:
 ```
 x = 1..100 
 	>> map[x => x * 2.5]
@@ -11,8 +12,11 @@ x = 1..100
 	>> reduce[+]
 
 print[x]
+
+Output: 9187.500000
 ```
 
+## Multiple dispatch + refinement types:
 ```
 PosInt :: type = x::int => x > 0
 
@@ -22,7 +26,7 @@ Deposit :: type = {
 Withdrawal :: type = {
     amount: PosInt
 }
-CheckBalance :: type = {}
+CheckBalance :: type
 
 applyAction = [action::Deposit] => "Depositing $" + action.amount
 applyAction = [action::Withdrawal] => "Withdrawing $" + action.amount
@@ -33,8 +37,11 @@ d :: Withdrawal = {
 }
 
 res = applyAction[d]
+
+// Output: "Withdrawing $35"
 ```
 
+## Pattern matching:
 ```
 pop_f = ls::[] => {
     match[ls] {
@@ -44,7 +51,9 @@ pop_f = ls::[] => {
     }
 }
 
-res = (1..10 >> pop_f >> (x => x.last) >> pop_f);
+res = 1..10 >> pop_f
+
+// Output: [1 [2 3 4 5 6 7 8 9]]
 ```
 
 ```
@@ -87,5 +96,29 @@ p3 :: PaymentMethod = {
     email: "blah@test.com"
 }
 
-res = describePayment[p2]
+describePayment[p2]
+
+// Output: "CASH - $42882"
+```
+
+## Tagged unions + pattern matching:
+```
+Animal = Dog::type | Cat::type | Bird::type
+
+p = [bool | Animal]
+
+x :: p = [true Bird]
+
+categoryId = match[x] {
+    [true {Dog}]: 1
+    [true {Cat}]: 2
+    [true {Bird}]: 3
+    [false {Dog | Cat}]: 4
+    [false {Bird}]: 5
+    (-1)
+}
+
+categoryId >> print
+
+// Output: 3
 ```
