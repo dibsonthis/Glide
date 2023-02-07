@@ -122,3 +122,144 @@ categoryId >> print
 
 // Output: 3
 ```
+
+# Data tranformation API
+
+## This is an example of data transformation using the csv module:
+
+```
+csv = import["imports/csv.gl"]
+
+employees = csv.load["src/data/employees.csv" schema: { 
+	id: int
+	age: int 
+	salary: float
+	is_manager: bool
+	departmentId: int
+}]
+
+departments = csv.load["src/data/departments.csv" schema: {
+	id: int
+}]
+
+extract_schema = {
+	id: id::int => "EMP_" + id
+	name: name::string => name
+	salary: salary::int => salary
+	is_manager: is_manager::bool => is_manager
+	department: obj => csv.ref[departments "id" obj.departmentId]
+}
+
+stage_1_schema = {
+	salary: [salary::int obj] => match[obj] {
+		{ is_manager: true }: salary * 1.35
+		salary * 0.85
+	}
+}
+
+stage_2_schema = {
+	tax: obj => match[obj] {
+		{ salary: x => x < 100000 }: 10
+		14.5
+	}
+	employeeID: obj => "00" + obj.id.split["_"].last
+}
+
+employees 
+>> csv.extract[extract_schema]
+>> (t1=)
+>> csv.reshape[stage_1_schema]
+>> (t2=)
+>> csv.reshape[stage_2_schema]
+>> (t3=)
+>> csv.group_by["department" csv.COUNT[]]
+>> (t4=) 
+>> (x => t3)
+>> csv.group_by["department" csv.AVG["salary"]]
+>> (t5=)
+```
+
+## Employees.csv
+
+```
+id,name,age,location,salary,is_manager,departmentId
+1,Allan Jones,32,Sydney,100000.00,true,1
+2,Allan Jones,25,Melbourne,150000.00,false,1
+3,James Wright,23,Brisbane,89000.00,false,2
+4,Haley Smith,25,Bondi,78000.00,true,2
+5,Jessica Mayfield,27,Greenacre,120000.00,true,2
+6,Jessica Rogers,22,Surry Hills,68000.00,false,3
+7,Eric Ericson,24,Camperdown,92000.00,false,4
+```
+
+## Departments.csv
+
+```
+id,name
+1,Sales
+2,Marketing
+3,Engineering
+4,Analytics
+```
+
+## Output of t3:
+
+```
+[ {
+  is_manager: true
+  name: Allan Jones
+  salary: 135000.000000
+  id: EMP_1
+  department: Sales
+  employeeID: 001
+  tax: 14.500000
+} {
+  is_manager: false
+  name: Allan Jones
+  salary: 127500.000000
+  id: EMP_2
+  department: Sales
+  employeeID: 002
+  tax: 14.500000
+} {
+  is_manager: false
+  name: James Wright
+  salary: 75650.000000
+  id: EMP_3
+  department: Marketing
+  employeeID: 003
+  tax: 10
+} {
+  is_manager: true
+  name: Haley Smith
+  salary: 105300.000000
+  id: EMP_4
+  department: Marketing
+  employeeID: 004
+  tax: 14.500000
+} {
+  is_manager: true
+  name: Jessica Mayfield
+  salary: 162000.000000
+  id: EMP_5
+  department: Marketing
+  employeeID: 005
+  tax: 14.500000
+} {
+  is_manager: false
+  name: Jessica Rogers
+  salary: 57800.000000
+  id: EMP_6
+  department: Engineering
+  employeeID: 006
+  tax: 10
+} {
+  is_manager: false
+  name: Eric Ericson
+  salary: 78200.000000
+  id: EMP_7
+  department: Analytics
+  employeeID: 007
+  tax: 10
+} ]
+```
