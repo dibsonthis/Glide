@@ -1,0 +1,229 @@
+CSV_PATH :: type = x::string => {
+	x.split["."].last == "csv"
+}
+
+load = [path::CSV_PATH delim::string = "," schema::object = {}] => {
+    data :: [string] = read[path].split["\n"]
+
+    headers = data.[0].split[","]
+        >> filter[x::string => x.length > 0]
+        >> map[x::string => x.trim[]]
+        
+    data_split::[[string|null]] = []
+
+    for [range[1 data.length] index row] {
+        r = data.[row].split[delim].map[x => x.trim[]].filter[x => x.length > 0]
+        data_split.append[r]
+        if [data_split.last.length < headers.length] {
+            diff = headers.length - data_split.last.length
+            for [0..diff] {
+                data_split.last.append[null]
+            }
+        }
+    }
+
+    obj_list::[object] = []
+
+    for [data_split index row] {
+
+        obj_list.append[{}]
+
+        if {
+            schema == null: {
+                for [headers i header] {
+                    obj_list.[index].[header] = row.[i]
+                }
+            }
+
+            for [headers i header] {
+                if {
+                    row.[i] == null: {}
+                    typeof[schema.[header]] == "function" && schema.[header].params.length == 1: {
+                        f = schema.[header]
+                        obj_list.[index].[header] = f[row.[i]]
+                    }
+                    typeof[schema.[header]] == "function" && schema.[header].params.length == 2: {
+                        f = schema.[header]
+                        obj_list.[index].[header] = f[row.[i] obj_list.[index]]
+                    }
+                    schema.[header] == int: (obj_list.[index].[header] = to_int[row.[i]])
+                    schema.[header] == float: (obj_list.[index].[header] = to_float[row.[i]])
+                    schema.[header] == string: (obj_list.[index].[header] = to_string[row.[i]])
+                    schema.[header] == bool: (obj_list.[index].[header] = if {
+                        row.[i] == "true": true
+                        row.[i] == "false": false
+                        false
+                    })
+                    obj_list.[index].[header] = row.[i]
+                }
+            }
+        }
+    }
+
+    ret obj_list
+}
+
+reshape = [schema::object data::[object]] => {
+	for [data index value] {
+		for [schema._items t_index t_value] {
+			if [value.[t_value.key] != null] {
+				if {
+                    typeof[t_value.value] == "function" && t_value.value.params.length == 0: {
+						value.[t_value.key] = t_value.value[]
+					}
+					typeof[t_value.value] == "function" && t_value.value.params.length == 1: {
+						x::any = value.[t_value.key]
+						value.delete[t_value.key]
+						value.[t_value.key] = t_value.value[x]
+					}
+					typeof[t_value.value] == "function" && t_value.value.params.length == 2: {
+						x::any = value.[t_value.key]
+						value.delete[t_value.key]
+						value.[t_value.key] = t_value.value[x value]
+					}
+					error["TypeError" "Schema error: '" + t_value.key + "' is not a function"]
+				}
+			}
+            if [value.[t_value.key] == null] {
+                if {
+                    typeof[t_value.value] == "function" && t_value.value.params.length == 0: {
+						value.[t_value.key] = t_value.value[]
+					}
+					typeof[t_value.value] == "function" && t_value.value.params.length == 1: {
+						value.[t_value.key] = t_value.value[value]
+					}
+					error["TypeError" "Schema error: '" + t_value.key + "' is not a function"]
+				}
+            }
+		}
+	}
+
+	data
+}
+
+extract = [schema::object data::[object]] => {
+    new_data::[object] = []
+	for [data index value] {
+        new_obj = {}
+		for [schema._items t_index t_value] {
+			if [value.[t_value.key] != null] {
+				if {
+                    typeof[t_value.value] == "function" && t_value.value.params.length == 0: {
+						new_obj.[t_value.key] = t_value.value[]
+					}
+					typeof[t_value.value] == "function" && t_value.value.params.length == 1: {
+						x::any = value.[t_value.key]
+						new_obj.[t_value.key] = t_value.value[x]
+					}
+					typeof[t_value.value] == "function" && t_value.value.params.length == 2: {
+						x::any = value.[t_value.key]
+						new_obj.[t_value.key] = t_value.value[x value]
+					}
+					error["TypeError" "Schema error: '" + t_value.key + "' is not a function"]
+				}
+			}
+            if [value.[t_value.key] == null] {
+                if {
+                    typeof[t_value.value] == "function" && t_value.value.params.length == 0: {
+						new_obj.[t_value.key] = t_value.value[]
+					}
+					typeof[t_value.value] == "function" && t_value.value.params.length == 1: {
+						new_obj.[t_value.key] = t_value.value[value]
+                    }
+                    typeof[t_value.value] == "function" && t_value.value.params.length == 2: {
+						new_obj.[t_value.key] = t_value.value[value new_obj]
+                    }
+					error["TypeError" "Schema error: '" + t_value.key + "' is not a function"]
+				}
+            }
+		}
+        new_data.append[new_obj]
+	}
+
+	new_data
+}
+
+group_by = [col::string aggr::function data::[object]] => {
+	if [data.length == 0] {
+		ret {}
+	}
+	colname :: KEYOF[data.[0]] = col
+	grouped = {}
+	data.foreach[x => {
+		if [grouped.[to_string[x.[col]]] == null] {
+			grouped.[to_string[x.[col]]] = []
+		}
+	
+		grouped.[to_string[x.[col]]].append[x]
+	}]
+
+	grouped_transformed = {}
+
+	for [grouped._keys index key] {
+		grouped_transformed.[key] = grouped.[key] >> aggr
+	}
+
+	grouped_transformed
+}
+
+group_by = [col::string data::[object]] => {
+	group_by[col (x => x) data]
+}
+
+ref = [table::[object] col::string value::any] => {
+	colName :: KEYOF[table.[0]] = col
+	func = x => x.[colName] == value
+	find[func table]
+}
+
+SUM = col::string => {
+	aggr = x => {
+		res = {}
+		res.[col] = x.map[x => x.[col]] >> reduce[+]
+		res
+	}
+}
+
+COUNT = [] => {
+	aggr = x::[] => {
+		res = {}
+		res.count = x.length
+		res
+	}
+}
+
+MAX = col::string => {
+	aggr = x::[] => {
+		res = {}
+		res.[col] = x.map[x => x.[col]] >> reduce[[a b] => {
+            if [a > b] {
+                ret a
+            }
+        
+            ret b
+        }]
+		res
+	}
+}
+
+MIN = col::string => {
+	aggr = x::[] => {
+		res = {}
+		res.[col] = x.map[x => x.[col]] >> reduce[[a b] => {
+            if [a <= b] {
+                ret a
+            }
+        
+            ret b
+        }]
+		res
+	}
+}
+
+AVG = col::string => {
+	aggr = x::[] => {
+		res = {}
+		res.[col] = x.map[x => x.[col]] >> reduce[+] >> (y => y/x.length)
+		res
+	}
+}
